@@ -1,0 +1,95 @@
+# Shared defaults for every variant. Per-variant configs `inherits: base.yaml`
+# and override only what they need to change.
+
+run:
+  output_root: runs
+  round_name: default
+  # model_tag is used in the output directory name; leave null to derive from
+  # the model path.
+  model_tag: null
+
+# Base model is intentionally left as TODO: the pipeline is model-agnostic.
+# Set `name_or_path` to any HuggingFace causal LM (e.g. Qwen/Qwen2.5-Coder-1.5B-Instruct,
+# meta-llama/Llama-3.2-1B-Instruct, etc.) before running.
+model:
+  name_or_path: TODO-set-me
+  dtype: auto
+  device_map: auto
+  trust_remote_code: true
+  load_in_4bit: false
+  load_in_8bit: false
+  lora: null
+  # Optional: attn_impl: sdpa | flash_attention_2
+
+data:
+  spider_root: datasets/spider
+  processed_dir: datasets/spider/processed
+  dataset_tag: spider
+  max_schema_chars: 4000
+  max_train_examples: null
+  max_eval_examples: null
+  eval_split: dev
+
+prompt:
+  mode: direct   # overridden per variant
+
+generation:
+  max_new_tokens: 512
+  temperature: 0.0
+  top_p: 1.0
+  do_sample: false
+  batch_size: 4
+  repetition_penalty: 1.0
+
+eval:
+  timeout_s: 5.0
+  detailed: true
+
+reward:
+  timeout_s: 5.0
+  match_reward: 1.0
+  validity_bonus: 0.0
+  sketch_bonus: 0.0
+  no_sql_penalty: 0.0
+
+sft:
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-5
+  warmup_ratio: 0.03
+  lr_scheduler_type: cosine
+  logging_steps: 20
+  save_steps: 500
+  save_total_limit: 2
+  eval_strategy: steps
+  eval_steps: 500
+  bf16: true
+  fp16: false
+  max_length: 2048
+  packing: false
+  gradient_checkpointing: true
+  report_to: ["none"]
+
+grpo:
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 1.0e-6
+  warmup_ratio: 0.0
+  lr_scheduler_type: constant
+  logging_steps: 10
+  save_steps: 500
+  save_total_limit: 2
+  bf16: true
+  fp16: false
+  max_prompt_length: 1536
+  max_completion_length: 512
+  num_generations: 8
+  beta: 0.04
+  temperature: 0.7
+  top_p: 0.95
+  # Critical: keep db_id / gold_sql columns so they reach the reward function.
+  remove_unused_columns: false
+  report_to: ["none"]

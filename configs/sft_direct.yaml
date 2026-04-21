@@ -1,0 +1,7 @@
+inherits: base.yaml
+
+run:
+  round_name: sft_direct
+
+prompt:
+  mode: direct

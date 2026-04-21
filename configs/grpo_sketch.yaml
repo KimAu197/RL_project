@@ -1,0 +1,20 @@
+inherits: base.yaml
+
+run:
+  round_name: grpo_sketch
+
+prompt:
+  mode: sketch
+
+model:
+  name_or_path: TODO-set-to-sft-sketch-checkpoint
+
+grpo:
+  num_generations: 8
+  max_prompt_length: 1536
+  max_completion_length: 640
+
+reward:
+  # Small, bounded bonus for producing a well-formed <sketch> block. Set to
+  # 0.0 to disable for the reward-hacking ablation.
+  sketch_bonus: 0.1

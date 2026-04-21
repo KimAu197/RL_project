@@ -1,0 +1,11 @@
+inherits: base.yaml
+
+run:
+  output_root: results
+  round_name: eval
+
+prompt:
+  mode: direct
+
+data:
+  max_eval_examples: 0   # 0 = full dev split

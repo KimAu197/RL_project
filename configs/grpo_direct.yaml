@@ -1,0 +1,17 @@
+inherits: base.yaml
+
+run:
+  round_name: grpo_direct
+
+prompt:
+  mode: direct
+
+# Typically model.name_or_path should point to the checkpoint produced by
+# sft_direct before running GRPO.
+model:
+  name_or_path: TODO-set-to-sft-direct-checkpoint
+
+grpo:
+  num_generations: 8
+  max_prompt_length: 1536
+  max_completion_length: 384

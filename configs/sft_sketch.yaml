@@ -1,0 +1,10 @@
+inherits: base.yaml
+
+run:
+  round_name: sft_sketch
+
+prompt:
+  mode: sketch
+
+sft:
+  max_length: 2560

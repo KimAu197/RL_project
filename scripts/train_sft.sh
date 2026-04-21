@@ -1,0 +1,58 @@
+#!/bin/bash
+set -eo pipefail
+
+################################################################################
+# SFT training for one of the two prompt variants.
+#
+# Required parameters:
+#   MODEL: base model path or HF repo id (overrides configs/base.yaml)
+#   ROUND_NAME: short tag used in the output directory
+#   DATASET: dataset tag used in the output directory (spider by default)
+#   COUNT: max training examples (0 = full train split)
+#   DETAILED: true|false, kept for parity with evaluation script
+#   VARIANT: direct | sketch (chooses configs/sft_<variant>.yaml)
+################################################################################
+
+# Base model (HF repo id or local path). Set this before running.
+MODEL="Qwen/Qwen2.5-Coder-1.5B-Instruct"
+
+# Short identifier used in the run directory name.
+ROUND_NAME="sft_baseline"
+
+# Dataset tag used in the output directory (e.g. spider, spider_sub).
+DATASET="spider"
+
+# Number of training examples. 0 = full split.
+COUNT=0
+
+# Whether to write detailed per-example outputs. Matches the evaluation script.
+DETAILED="true"
+
+# Which variant to train. Options: direct | sketch
+VARIANT="direct"
+
+
+################################################################################
+# Run
+
+cd "$(dirname "$0")/.."
+
+CONFIG="configs/sft_${VARIANT}.yaml"
+if [[ ! -f "$CONFIG" ]]; then
+    echo "config not found: $CONFIG" >&2
+    exit 1
+fi
+
+mkdir -p runs
+
+CMD=(python -m project.training.sft_train
+     --config "$CONFIG"
+     --model "$MODEL"
+     --round "$ROUND_NAME")
+if [[ "$COUNT" != "0" ]]; then
+    CMD+=(--max-train "$COUNT")
+fi
+
+"${CMD[@]}" 2>&1 | tee -a "runs/${ROUND_NAME}_launch.log"
+
+echo "[train_sft] finished variant=$VARIANT model=$MODEL dataset=$DATASET count=$COUNT detailed=$DETAILED"
