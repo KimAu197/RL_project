@@ -1,7 +1,9 @@
 """Download and unpack the Spider dataset.
 
 Spider is distributed by the Yale LILY group as a single zip hosted on
-Google Drive. The download flow has two paths:
+Google Drive. The current release is ``spider_data.zip``
+(file id ``1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J``). The download flow has two
+paths:
 
 1. If ``gdown`` is installed, we use it (it handles the Drive confirm-token
    dance correctly). This is the recommended path.
@@ -9,7 +11,12 @@ Google Drive. The download flow has two paths:
    works when Drive doesn't inject a confirm page, and gives the user a
    clear manual-fallback message if it fails.
 
-After download, the expected layout is:
+The zip extracts into a top-level ``spider_data/`` directory. To keep the
+rest of the repo (configs, scripts, dataset loaders) working with the
+historical ``datasets/spider/`` path, we rename that directory to
+``spider/`` after extraction.
+
+Final on-disk layout:
 
     <dest>/spider/
         database/<db_id>/<db_id>.sqlite
@@ -21,7 +28,7 @@ After download, the expected layout is:
 If you hit rate limits or the Drive link rots, simply:
 
     pip install gdown
-    gdown --id 1TqleXec_OykOYFREKKtschzY29dUcVAQ -O datasets/spider.zip
+    gdown --id 1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J -O datasets/spider.zip
 
 or download manually from https://yale-lily.github.io/spider and place
 ``spider.zip`` at ``datasets/spider.zip`` before re-running.
@@ -34,9 +41,11 @@ import sys
 import zipfile
 from pathlib import Path
 
-DRIVE_FILE_ID = "1TqleXec_OykOYFREKKtschzY29dUcVAQ"
+DRIVE_FILE_ID = "1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J"
 DIRECT_URL = f"https://drive.usercontent.google.com/download?id={DRIVE_FILE_ID}&export=download&confirm=t"
 PROJECT_PAGE = "https://yale-lily.github.io/spider"
+ARCHIVE_ROOT_NAME = "spider_data"
+TARGET_ROOT_NAME = "spider"
 
 
 def _download_with_gdown(dest: Path) -> bool:
@@ -85,6 +94,24 @@ def _unzip(zip_path: Path, dest: Path) -> None:
         zf.extractall(dest)
 
 
+def _normalize_extracted_root(dest_root: Path) -> Path:
+    """Ensure the extracted tree lives at ``dest_root / TARGET_ROOT_NAME``.
+
+    The current Spider release unzips into ``spider_data/``. Older releases
+    unzipped into ``spider/``. We normalize to ``spider/`` so downstream
+    configs and scripts don't need to change.
+    """
+    target = dest_root / TARGET_ROOT_NAME
+    archive = dest_root / ARCHIVE_ROOT_NAME
+    if target.exists():
+        return target
+    if archive.exists():
+        print(f"[download_spider] renaming {archive} -> {target}")
+        archive.rename(target)
+        return target
+    return target
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Download Spider dataset")
     parser.add_argument("--dest", type=Path, default=Path("datasets"), help="destination root")
@@ -95,12 +122,15 @@ def main(argv: list[str] | None = None) -> int:
     dest_root: Path = args.dest
     dest_root.mkdir(parents=True, exist_ok=True)
     zip_path = dest_root / "spider.zip"
-    extracted_root = dest_root / "spider"
+    extracted_root = dest_root / TARGET_ROOT_NAME
+    archive_root = dest_root / ARCHIVE_ROOT_NAME
 
     if args.force and zip_path.exists():
         zip_path.unlink()
-    if args.force and extracted_root.exists():
-        shutil.rmtree(extracted_root)
+    if args.force:
+        for p in (extracted_root, archive_root):
+            if p.exists():
+                shutil.rmtree(p)
 
     if not (zip_path.exists() and zip_path.stat().st_size > 0):
         ok = _download_with_gdown(zip_path) or _download_direct(args.url, zip_path)
@@ -116,8 +146,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"[download_spider] {zip_path} already present, skipping download")
 
-    if not extracted_root.exists():
+    if not extracted_root.exists() and not archive_root.exists():
         _unzip(zip_path, dest_root)
+
+    extracted_root = _normalize_extracted_root(dest_root)
 
     expected = [
         extracted_root / "tables.json",
