@@ -2,7 +2,7 @@
 # and override only what they need to change.
 
 run:
-  output_root: runs
+  output_root: RL_project/runs
   round_name: default
   # model_tag is used in the output directory name; leave null to derive from
   # the model path.
