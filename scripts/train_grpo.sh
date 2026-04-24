@@ -47,7 +47,7 @@ fi
 
 mkdir -p runs
 
-CMD=(python -m project.training.grpo_train
+CMD=(python -m RL_project.training.grpo_train
      --config "$CONFIG"
      --round "$ROUND_NAME"
      --init-ckpt "$MODEL")
