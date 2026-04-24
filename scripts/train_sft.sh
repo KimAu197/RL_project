@@ -45,7 +45,7 @@ fi
 
 mkdir -p runs
 
-CMD=(python -m project.training.sft_train
+CMD=(python -m RL_project.training.sft_train
      --config "$CONFIG"
      --model "$MODEL"
      --round "$ROUND_NAME")
