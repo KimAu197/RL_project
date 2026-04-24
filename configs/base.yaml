@@ -12,13 +12,25 @@ run:
 # Set `name_or_path` to any HuggingFace causal LM (e.g. Qwen/Qwen2.5-Coder-1.5B-Instruct,
 # meta-llama/Llama-3.2-1B-Instruct, etc.) before running.
 model:
-  name_or_path: Qwen/Qwen2.5-Coder-1.5B-Instruct
-  dtype: auto
+  name_or_path: Qwen/Qwen2.5-7B-Instruct
+  dtype: bfloat16
   device_map: auto
   trust_remote_code: true
-  load_in_4bit: false
+  load_in_4bit: true
   load_in_8bit: false
-  lora: null
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    bias: none
+    target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
   # Optional: attn_impl: sdpa | flash_attention_2
 
 data:
@@ -54,15 +66,14 @@ reward:
 
 sft:
   num_train_epochs: 3
-  per_device_train_batch_size: 2
-  per_device_eval_batch_size: 2
-  gradient_accumulation_steps: 8
-  learning_rate: 2.0e-5
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 1.0e-4
   warmup_ratio: 0.03
   lr_scheduler_type: cosine
   logging_steps: 20
   save_steps: 500
-  save_total_limit: 2
   eval_strategy: steps
   eval_steps: 500
   bf16: true
@@ -82,8 +93,8 @@ grpo:
   logging_steps: 10
   save_steps: 500
   save_total_limit: 2
-  bf16: true
-  fp16: false
+  bf16: false
+  fp16: true
   max_prompt_length: 1536
   max_completion_length: 512
   num_generations: 8
