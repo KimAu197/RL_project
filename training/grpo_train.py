@@ -25,6 +25,7 @@ from ..evaluation.utils import (
     snapshot_config,
 )
 from ..models.loader import LoaderConfig, load_model_and_tokenizer
+from .logging_utils import configure_wandb_reporting
 from .reward import RewardConfig, build_reward_fn
 
 LOGGER = logging.getLogger("grpo_train")
@@ -123,9 +124,14 @@ def run_grpo(config_path: str, extra: dict) -> int:
     grpo_args_cfg = dict(cfg.get("grpo", {}))
     grpo_args_cfg.setdefault("output_dir", str(output_dir / "checkpoints"))
     grpo_args_cfg.setdefault("logging_dir", str(output_dir / "tb"))
-    grpo_args_cfg.setdefault("report_to", ["none"])
     # Reward needs db_id / gold_sql from the dataset; never let HF drop them.
     grpo_args_cfg["remove_unused_columns"] = False
+    grpo_args_cfg = configure_wandb_reporting(
+        trainer_args=grpo_args_cfg,
+        wandb_cfg=cfg.get("wandb"),
+        output_dir=output_dir,
+        run_name=output_dir.name,
+    )
     grpo_args = GRPOConfig(**grpo_args_cfg)
 
     trainer = GRPOTrainer(
@@ -159,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-train", type=int, default=None)
     parser.add_argument("--round", type=str, default=None)
     parser.add_argument("--init-ckpt", type=str, default=None, help="override model.name_or_path")
+    parser.add_argument("--wandb-enabled", choices=("true", "false"), default=None)
+    parser.add_argument("--wandb-project", type=str, default=None)
+    parser.add_argument("--wandb-entity", type=str, default=None)
     args = parser.parse_args(argv)
 
     extra: dict = {}
@@ -168,6 +177,12 @@ def main(argv: list[str] | None = None) -> int:
         extra.setdefault("run", {})["round_name"] = args.round
     if args.init_ckpt is not None:
         extra.setdefault("model", {})["name_or_path"] = args.init_ckpt
+    if args.wandb_enabled is not None:
+        extra.setdefault("wandb", {})["enabled"] = args.wandb_enabled == "true"
+    if args.wandb_project is not None:
+        extra.setdefault("wandb", {})["project"] = args.wandb_project
+    if args.wandb_entity is not None:
+        extra.setdefault("wandb", {})["entity"] = args.wandb_entity
 
     return run_grpo(args.config, extra)
 

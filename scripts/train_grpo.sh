@@ -30,6 +30,11 @@ COUNT=0
 # Whether to write detailed outputs (parity with evaluation script).
 DETAILED="true"
 
+# Upload Trainer metrics to Weights & Biases. Requires `wandb login` first.
+WANDB_ENABLED="false"
+WANDB_PROJECT="sketch-to-sql-rl"
+WANDB_ENTITY=""
+
 # Which variant to train. Options: direct | sketch
 VARIANT="direct"
 
@@ -50,7 +55,12 @@ mkdir -p runs
 CMD=(python -m RL_project.training.grpo_train
      --config "$CONFIG"
      --round "$ROUND_NAME"
-     --init-ckpt "$MODEL")
+     --init-ckpt "$MODEL"
+     --wandb-enabled "$WANDB_ENABLED"
+     --wandb-project "$WANDB_PROJECT")
+if [[ -n "$WANDB_ENTITY" ]]; then
+    CMD+=(--wandb-entity "$WANDB_ENTITY")
+fi
 if [[ "$COUNT" != "0" ]]; then
     CMD+=(--max-train "$COUNT")
 fi

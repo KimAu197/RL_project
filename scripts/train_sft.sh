@@ -28,6 +28,11 @@ COUNT=0
 # Whether to write detailed per-example outputs. Matches the evaluation script.
 DETAILED="true"
 
+# Upload Trainer metrics to Weights & Biases. Requires `wandb login` first.
+WANDB_ENABLED="false"
+WANDB_PROJECT="sketch-to-sql-rl"
+WANDB_ENTITY=""
+
 # Which variant to train. Options: direct | sketch
 VARIANT="direct"
 
@@ -48,7 +53,12 @@ mkdir -p runs
 CMD=(python -m RL_project.training.sft_train
      --config "$CONFIG"
      --model "$MODEL"
-     --round "$ROUND_NAME")
+     --round "$ROUND_NAME"
+     --wandb-enabled "$WANDB_ENABLED"
+     --wandb-project "$WANDB_PROJECT")
+if [[ -n "$WANDB_ENTITY" ]]; then
+    CMD+=(--wandb-entity "$WANDB_ENTITY")
+fi
 if [[ "$COUNT" != "0" ]]; then
     CMD+=(--max-train "$COUNT")
 fi

@@ -58,6 +58,10 @@ bash scripts/train_sft.sh        # uses configs/sft_direct.yaml by default
 Edit the top of `scripts/train_sft.sh` to switch `CONFIG` between `sft_direct.yaml`
 and `sft_sketch.yaml`.
 
+Training metrics can be uploaded to Weights & Biases by running `wandb login`
+and setting `WANDB_ENABLED="true"` at the top of the training script. W&B is
+disabled by default so local training works without an account.
+
 ## Train (GRPO)
 
 ```bash

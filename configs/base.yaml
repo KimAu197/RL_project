@@ -8,6 +8,12 @@ run:
   # the model path.
   model_tag: null
 
+wandb:
+  enabled: false
+  project: sketch-to-sql-rl
+  entity: null
+  tags: []
+
 # Base model is intentionally left as TODO: the pipeline is model-agnostic.
 # Set `name_or_path` to any HuggingFace causal LM (e.g. Qwen/Qwen2.5-Coder-1.5B-Instruct,
 # meta-llama/Llama-3.2-1B-Instruct, etc.) before running.
