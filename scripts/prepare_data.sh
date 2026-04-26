@@ -27,8 +27,8 @@ MAX_SCHEMA_CHARS=4000
 # Run
 
 # Repo root = this script's parent directory. Put the repo's parent on
-# PYTHONPATH so ``python -m <folder_name>.data...`` works whether the
-# directory is named ``project``, ``RL_project``, etc.
+# PYTHONPATH so ``python -m <folder_name>.data...`` works after renaming
+# the project directory.
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONPATH="$(dirname "$REPO_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
 PKG="$(basename "$REPO_ROOT")"

@@ -98,4 +98,3 @@ results/<ROUND>_<MODEL>_<DATASET>_<COUNT>_<MMDD>[_HHMM]/
   reward hacking, but disabled by default.
 - Base model choice is intentionally not hard-coded. Set `model.name_or_path`
   in `configs/base.yaml`.
-# RL_project

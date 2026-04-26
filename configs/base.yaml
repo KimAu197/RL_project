@@ -2,7 +2,7 @@
 # and override only what they need to change.
 
 run:
-  output_root: RL_project/runs
+  output_root: runs
   round_name: default
   # model_tag is used in the output directory name; leave null to derive from
   # the model path.
@@ -40,8 +40,8 @@ model:
   # Optional: attn_impl: sdpa | flash_attention_2
 
 data:
-  spider_root: RL_project/spider
-  processed_dir: RL_project/spider/processed
+  spider_root: datasets/spider
+  processed_dir: datasets/spider/processed
   dataset_tag: spider
   max_schema_chars: 4000
   max_train_examples: null
