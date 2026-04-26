@@ -41,6 +41,9 @@ VARIANT="direct"
 # Run
 
 cd "$(dirname "$0")/.."
+PROJECT_NAME="$(basename "$PWD")"
+PROJECT_PARENT="$(dirname "$PWD")"
+export PYTHONPATH="${PROJECT_PARENT}${PYTHONPATH:+:${PYTHONPATH}}"
 
 CONFIG="configs/sft_${VARIANT}.yaml"
 if [[ ! -f "$CONFIG" ]]; then
@@ -50,7 +53,7 @@ fi
 
 mkdir -p runs
 
-CMD=(python -m RL_project.training.sft_train
+CMD=(python -m "${PROJECT_NAME}.training.sft_train"
      --config "$CONFIG"
      --model "$MODEL"
      --round "$ROUND_NAME"

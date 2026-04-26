@@ -23,6 +23,7 @@ spider/
 spider.zip
 *.sqlite
 *.db
+tests/
 
 *.log
 *.tmp

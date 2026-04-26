@@ -43,6 +43,9 @@ VARIANT="direct"
 # Run
 
 cd "$(dirname "$0")/.."
+PROJECT_NAME="$(basename "$PWD")"
+PROJECT_PARENT="$(dirname "$PWD")"
+export PYTHONPATH="${PROJECT_PARENT}${PYTHONPATH:+:${PYTHONPATH}}"
 
 CONFIG="configs/grpo_${VARIANT}.yaml"
 if [[ ! -f "$CONFIG" ]]; then
@@ -52,7 +55,7 @@ fi
 
 mkdir -p runs
 
-CMD=(python -m RL_project.training.grpo_train
+CMD=(python -m "${PROJECT_NAME}.training.grpo_train"
      --config "$CONFIG"
      --round "$ROUND_NAME"
      --init-ckpt "$MODEL"
