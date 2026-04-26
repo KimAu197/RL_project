@@ -7,6 +7,7 @@ for reproducible comparisons across the four system variants.
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import json
 import logging
 from dataclasses import dataclass, field
@@ -34,6 +35,8 @@ class LoaderConfig:
     tokenizer_name_or_path: Optional[str] = None
     pad_token: str = "<|endoftext|>"
     chat_template_override: Optional[str] = None
+    # Optional pin for the Hub revision when `name_or_path` is a PEFT dir (or base is Hub).
+    base_model_revision: Optional[str] = None
     extra_model_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
@@ -78,6 +81,8 @@ def _load_causal_backbone(cfg: LoaderConfig) -> torch.nn.Module:
         "trust_remote_code": cfg.trust_remote_code,
         "torch_dtype": _resolve_dtype(cfg.dtype),
     }
+    if cfg.base_model_revision:
+        model_kwargs["revision"] = cfg.base_model_revision
     if cfg.device_map:
         model_kwargs["device_map"] = cfg.device_map
     if cfg.attn_impl:
@@ -87,6 +92,33 @@ def _load_causal_backbone(cfg: LoaderConfig) -> torch.nn.Module:
         model_kwargs["quantization_config"] = bnb
     model_kwargs.update(cfg.extra_model_kwargs or {})
     return AutoModelForCausalLM.from_pretrained(cfg.name_or_path, **model_kwargs)
+
+
+def _load_tokenizer(cfg: LoaderConfig, tok_src: str):
+    tokenizer = AutoTokenizer.from_pretrained(
+        tok_src,
+        trust_remote_code=cfg.trust_remote_code,
+        use_fast=True,
+    )
+    if tokenizer.pad_token is None:
+        if tokenizer.eos_token is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        else:
+            tokenizer.add_special_tokens({"pad_token": cfg.pad_token})
+    if cfg.chat_template_override:
+        tokenizer.chat_template = cfg.chat_template_override
+    return tokenizer
+
+
+def _peft_from_pretrained_matched(
+    model: torch.nn.Module, peft_path: str, is_trainable: bool = False
+) -> torch.nn.Module:
+    from peft import PeftModel
+
+    kwargs: dict[str, Any] = {"is_trainable": is_trainable}
+    if "ignore_mismatched_sizes" in inspect.signature(PeftModel.from_pretrained).parameters:
+        kwargs["ignore_mismatched_sizes"] = True
+    return PeftModel.from_pretrained(model, peft_path, **kwargs)
 
 
 def _apply_lora(model, lora_cfg: dict[str, Any]):
@@ -108,6 +140,9 @@ def _apply_lora(model, lora_cfg: dict[str, Any]):
 
 
 def load_model_and_tokenizer(cfg: LoaderConfig):
+    tok_src = cfg.tokenizer_name_or_path or cfg.name_or_path
+    tokenizer = _load_tokenizer(cfg, tok_src)
+
     if _is_peft_adapter_dir(cfg.name_or_path):
         peft_path = str(Path(cfg.name_or_path).resolve())
         with open(Path(peft_path) / "adapter_config.json", encoding="utf-8") as f:
@@ -121,11 +156,18 @@ def load_model_and_tokenizer(cfg: LoaderConfig):
                 "checkpoint (adapter is loaded from %s).",
                 peft_path,
             )
-        base_cfg = dataclasses.replace(cfg, name_or_path=base, lora=None)
+        # Align base snapshot with the saved adapter when the Hub default moves (vocab/weights).
+        rev = cfg.base_model_revision or adapter_info.get("revision")
+        base_cfg = dataclasses.replace(
+            cfg,
+            name_or_path=base,
+            lora=None,
+            base_model_revision=rev,
+        )
         model = _load_causal_backbone(base_cfg)
-        from peft import PeftModel
-
-        model = PeftModel.from_pretrained(model, peft_path, is_trainable=False)
+        if len(tokenizer) != model.get_input_embeddings().weight.shape[0]:
+            model.resize_token_embeddings(len(tokenizer))
+        model = _peft_from_pretrained_matched(model, peft_path, is_trainable=False)
     else:
         if cfg.lora is not None:
             base_cfg = dataclasses.replace(cfg, lora=None)
@@ -134,23 +176,8 @@ def load_model_and_tokenizer(cfg: LoaderConfig):
         model = _load_causal_backbone(base_cfg)
         if cfg.lora is not None:
             model = _apply_lora(model, cfg.lora)
-
-    tok_src = cfg.tokenizer_name_or_path or cfg.name_or_path
-    tokenizer = AutoTokenizer.from_pretrained(
-        tok_src,
-        trust_remote_code=cfg.trust_remote_code,
-        use_fast=True,
-    )
-    if tokenizer.pad_token is None:
-        if tokenizer.eos_token is not None:
-            tokenizer.pad_token = tokenizer.eos_token
-        else:
-            tokenizer.add_special_tokens({"pad_token": cfg.pad_token})
-    if cfg.chat_template_override:
-        tokenizer.chat_template = cfg.chat_template_override
-
-    if len(tokenizer) != model.get_input_embeddings().weight.shape[0]:
-        model.resize_token_embeddings(len(tokenizer))
+        if len(tokenizer) != model.get_input_embeddings().weight.shape[0]:
+            model.resize_token_embeddings(len(tokenizer))
 
     model.config.pad_token_id = tokenizer.pad_token_id
     return model, tokenizer
