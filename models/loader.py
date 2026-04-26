@@ -6,11 +6,17 @@ for reproducible comparisons across the four system variants.
 """
 from __future__ import annotations
 
+import dataclasses
+import json
+import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+_LOG = logging.getLogger(__name__)
 
 __all__ = ["LoaderConfig", "load_model_and_tokenizer"]
 
@@ -60,6 +66,29 @@ def _maybe_bnb_config(cfg: LoaderConfig):
     return BitsAndBytesConfig(load_in_8bit=True)
 
 
+def _is_peft_adapter_dir(name_or_path: str) -> bool:
+    p = Path(name_or_path)
+    if not p.is_dir():
+        return False
+    return (p / "adapter_config.json").is_file()
+
+
+def _load_causal_backbone(cfg: LoaderConfig) -> torch.nn.Module:
+    model_kwargs: dict[str, Any] = {
+        "trust_remote_code": cfg.trust_remote_code,
+        "torch_dtype": _resolve_dtype(cfg.dtype),
+    }
+    if cfg.device_map:
+        model_kwargs["device_map"] = cfg.device_map
+    if cfg.attn_impl:
+        model_kwargs["attn_implementation"] = cfg.attn_impl
+    bnb = _maybe_bnb_config(cfg)
+    if bnb is not None:
+        model_kwargs["quantization_config"] = bnb
+    model_kwargs.update(cfg.extra_model_kwargs or {})
+    return AutoModelForCausalLM.from_pretrained(cfg.name_or_path, **model_kwargs)
+
+
 def _apply_lora(model, lora_cfg: dict[str, Any]):
     from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 
@@ -79,6 +108,33 @@ def _apply_lora(model, lora_cfg: dict[str, Any]):
 
 
 def load_model_and_tokenizer(cfg: LoaderConfig):
+    if _is_peft_adapter_dir(cfg.name_or_path):
+        peft_path = str(Path(cfg.name_or_path).resolve())
+        with open(Path(peft_path) / "adapter_config.json", encoding="utf-8") as f:
+            adapter_info = json.load(f)
+        base = adapter_info.get("base_model_name_or_path")
+        if not base:
+            raise ValueError("adapter_config.json is missing base_model_name_or_path")
+        if cfg.lora is not None:
+            _LOG.warning(
+                "model.lora in config is ignored when name_or_path is a PEFT "
+                "checkpoint (adapter is loaded from %s).",
+                peft_path,
+            )
+        base_cfg = dataclasses.replace(cfg, name_or_path=base, lora=None)
+        model = _load_causal_backbone(base_cfg)
+        from peft import PeftModel
+
+        model = PeftModel.from_pretrained(model, peft_path, is_trainable=False)
+    else:
+        if cfg.lora is not None:
+            base_cfg = dataclasses.replace(cfg, lora=None)
+        else:
+            base_cfg = cfg
+        model = _load_causal_backbone(base_cfg)
+        if cfg.lora is not None:
+            model = _apply_lora(model, cfg.lora)
+
     tok_src = cfg.tokenizer_name_or_path or cfg.name_or_path
     tokenizer = AutoTokenizer.from_pretrained(
         tok_src,
@@ -93,26 +149,8 @@ def load_model_and_tokenizer(cfg: LoaderConfig):
     if cfg.chat_template_override:
         tokenizer.chat_template = cfg.chat_template_override
 
-    model_kwargs: dict[str, Any] = {
-        "trust_remote_code": cfg.trust_remote_code,
-        "torch_dtype": _resolve_dtype(cfg.dtype),
-    }
-    if cfg.device_map:
-        model_kwargs["device_map"] = cfg.device_map
-    if cfg.attn_impl:
-        model_kwargs["attn_implementation"] = cfg.attn_impl
-    bnb = _maybe_bnb_config(cfg)
-    if bnb is not None:
-        model_kwargs["quantization_config"] = bnb
-    model_kwargs.update(cfg.extra_model_kwargs or {})
-
-    model = AutoModelForCausalLM.from_pretrained(cfg.name_or_path, **model_kwargs)
-
     if len(tokenizer) != model.get_input_embeddings().weight.shape[0]:
         model.resize_token_embeddings(len(tokenizer))
-
-    if cfg.lora:
-        model = _apply_lora(model, cfg.lora)
 
     model.config.pad_token_id = tokenizer.pad_token_id
     return model, tokenizer

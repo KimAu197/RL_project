@@ -37,9 +37,6 @@ a single GPU, or a multi-GPU box.
 pip install -r requirements.txt
 ```
 
-`bitsandbytes` is only needed if you enable 4-bit loading. Pin CUDA-matching
-`torch` / `bitsandbytes` wheels separately on GPU boxes.
-
 ## Prepare Spider
 
 ```bash
