@@ -14,7 +14,7 @@ set -eo pipefail
 ################################################################################
 
 # Base model (HF repo id or local path). Set this before running.
-MODEL="Qwen/Qwen2.5-Coder-1.5B-Instruct"
+MODEL="Qwen/Qwen2.5-7B-Instruct"
 
 # Short identifier used in the run directory name.
 ROUND_NAME="sft_baseline"

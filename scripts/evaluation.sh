@@ -14,10 +14,10 @@ set -eo pipefail
 ################################################################################
 
 # Model to evaluate (path to SFT/GRPO final checkpoint or HF repo id).
-MODEL="Qwen/Qwen2.5-Coder-1.5B-Instruct"
+MODEL="runs/sft_baseline_.../final"
 
 # Short identifier used in the results directory name.
-ROUND_NAME="eval_baseline"
+ROUND_NAME="eval_sft_baseline"
 
 # Dataset tag (e.g. spider, spider_dev_sub).
 DATASET="spider"
