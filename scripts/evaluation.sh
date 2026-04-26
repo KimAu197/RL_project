@@ -35,11 +35,14 @@ VARIANT="direct"
 ################################################################################
 # Run
 
-cd "$(dirname "$0")/.."
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$(dirname "$REPO_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
+PKG="$(basename "$REPO_ROOT")"
+cd "$REPO_ROOT"
 
 CONFIG="configs/eval_default.yaml"
 
-python -m project.evaluation.eval_pipeline \
+python -m "${PKG}.evaluation.eval_pipeline" \
     --config "$CONFIG" \
     --model "$MODEL" \
     --round "$ROUND_NAME" \

@@ -26,11 +26,17 @@ MAX_SCHEMA_CHARS=4000
 ################################################################################
 # Run
 
-cd "$(dirname "$0")/.."
+# Repo root = this script's parent directory. Put the repo's parent on
+# PYTHONPATH so ``python -m <folder_name>.data...`` works whether the
+# directory is named ``project``, ``RL_project``, etc.
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$(dirname "$REPO_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
+PKG="$(basename "$REPO_ROOT")"
+cd "$REPO_ROOT"
 
-python -m project.data.download_spider --dest "$(dirname "$SPIDER_ROOT")"
+python -m "${PKG}.data.download_spider" --dest "$(dirname "$SPIDER_ROOT")"
 
-python -m project.data.prepare \
+python -m "${PKG}.data.prepare" \
     --spider-root "$SPIDER_ROOT" \
     --out "$PROCESSED_DIR" \
     --max-schema-chars "$MAX_SCHEMA_CHARS"
