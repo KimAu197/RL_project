@@ -81,6 +81,7 @@ sft:
   logging_steps: 20
   save_steps: 500
   eval_strategy: steps
+  eval_on_start: true
   eval_steps: 500
   bf16: true
   fp16: false
