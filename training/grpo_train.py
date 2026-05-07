@@ -117,6 +117,9 @@ def run_grpo(config_path: str, extra: dict) -> int:
         match_reward=float(cfg.get("reward", {}).get("match_reward", 1.0)),
         validity_bonus=float(cfg.get("reward", {}).get("validity_bonus", 0.0)),
         sketch_bonus=float(cfg.get("reward", {}).get("sketch_bonus", 0.0)),
+        sketch_format_bonus=float(cfg.get("reward", {}).get("sketch_format_bonus", 0.0)),
+        sketch_table_bonus=float(cfg.get("reward", {}).get("sketch_table_bonus", 0.0)),
+        sketch_agg_bonus=float(cfg.get("reward", {}).get("sketch_agg_bonus", 0.0)),
         no_sql_penalty=float(cfg.get("reward", {}).get("no_sql_penalty", 0.0)),
     )
     reward_fn = build_reward_fn(reward_cfg)

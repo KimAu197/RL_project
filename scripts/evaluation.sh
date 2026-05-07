@@ -40,7 +40,13 @@ export PYTHONPATH="$(dirname "$REPO_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
 PKG="$(basename "$REPO_ROOT")"
 cd "$REPO_ROOT"
 
-CONFIG="configs/eval_default.yaml"
+# Pick eval config based on prompt mode so sketch eval gets a larger
+# generation budget (see configs/eval_sketch.yaml).
+if [ "$VARIANT" = "sketch" ]; then
+    CONFIG="configs/eval_sketch.yaml"
+else
+    CONFIG="configs/eval_default.yaml"
+fi
 
 python -m "${PKG}.evaluation.eval_pipeline" \
     --config "$CONFIG" \

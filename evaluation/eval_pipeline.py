@@ -31,6 +31,7 @@ from ..data.spider_dataset import load_spider_splits
 from ..models.generation import GenerationConfigLite, generate_batched
 from ..models.loader import LoaderConfig, load_model_and_tokenizer
 from ..sql.metrics import evaluate_predictions
+from .diagnostics import compute_diagnostics
 from .utils import (
     configure_logging,
     deep_merge,
@@ -64,7 +65,12 @@ def _write_metrics_csv(metrics: list[Any], summary: dict[str, float], path: Path
             writer.writerow([k, v])
 
 
-def _write_summary(summary: dict[str, float], variant: str, path: Path) -> None:
+def _write_summary(
+    summary: dict[str, float],
+    variant: str,
+    path: Path,
+    diagnostics: dict[str, float] | None = None,
+) -> None:
     lines = [
         "Sketch-to-SQL evaluation summary",
         "================================",
@@ -74,6 +80,21 @@ def _write_summary(summary: dict[str, float], variant: str, path: Path) -> None:
         f"executable_rate   : {summary.get('executable_rate', 0.0):.4f}",
         f"validity_rate     : {summary.get('validity_rate', 0.0):.4f}",
     ]
+    if diagnostics:
+        lines.append("")
+        lines.append("Diagnostics (failure modes)")
+        lines.append("---------------------------")
+        for key in (
+            "sql_block_present_rate",
+            "sketch_block_present_rate",
+            "sketch_open_no_sql_rate",
+            "no_sql_extracted_rate",
+            "invalid_sql_rate",
+            "unclosed_block_rate",
+            "near_token_limit_rate",
+        ):
+            if key in diagnostics:
+                lines.append(f"{key:25s}: {float(diagnostics[key]):.4f}")
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -140,14 +161,22 @@ def run_eval(config_path: str, cli_overrides: dict) -> int:
     batch_size = int(gen_cfg_dict.get("batch_size", 4))
     LOGGER.info("running generation: batch_size=%d", batch_size)
 
-    completions_nested = []
+    completions_nested: list[list[str]] = []
+    token_counts_nested: list[list[int]] = []
     for start in tqdm(range(0, len(prompts), batch_size), desc="generate"):
         chunk = prompts[start : start + batch_size]
-        completions_nested.extend(generate_batched(model, tokenizer, chunk, gen_cfg, batch_size=batch_size))
+        comps, counts = generate_batched(
+            model, tokenizer, chunk, gen_cfg, batch_size=batch_size, return_token_counts=True
+        )
+        completions_nested.extend(comps)
+        token_counts_nested.extend(counts)
 
     preds = []
-    for i, (r, comps) in enumerate(zip(records, completions_nested)):
+    for i, (r, comps, counts) in enumerate(
+        zip(records, completions_nested, token_counts_nested)
+    ):
         pred_text = comps[0] if comps else ""
+        new_token_count = int(counts[0]) if counts else 0
         preds.append(
             {
                 "idx": i,
@@ -155,6 +184,7 @@ def run_eval(config_path: str, cli_overrides: dict) -> int:
                 "question": r.question,
                 "gold_sql": r.sql,
                 "pred_text": pred_text,
+                "new_token_count": new_token_count,
             }
         )
 
@@ -165,16 +195,29 @@ def run_eval(config_path: str, cli_overrides: dict) -> int:
         timeout_s=float(cfg.get("eval", {}).get("timeout_s", 5.0)),
     )
 
+    diagnostics = compute_diagnostics(preds, max_new_tokens=gen_cfg.max_new_tokens)
+    (output_dir / "diagnostics.json").write_text(
+        json.dumps(diagnostics, indent=2) + "\n"
+    )
+
     _write_metrics_csv(per_example, summary, output_dir / "metrics.csv")
-    _write_summary(summary, variant=f"{mode}_{run_cfg.get('round_name','eval')}", path=output_dir / "summary.txt")
+    _write_summary(
+        summary,
+        variant=f"{mode}_{run_cfg.get('round_name','eval')}",
+        path=output_dir / "summary.txt",
+        diagnostics=diagnostics,
+    )
     detailed = bool(cfg.get("eval", {}).get("detailed", True))
     _write_answer_json(per_example, output_dir / "answer.json", detailed=detailed)
 
     LOGGER.info(
-        "done: exec_acc=%.4f executable=%.4f validity=%.4f",
+        "done: exec_acc=%.4f executable=%.4f validity=%.4f no_sql=%.4f unclosed=%.4f near_limit=%.4f",
         summary.get("execution_accuracy", 0.0),
         summary.get("executable_rate", 0.0),
         summary.get("validity_rate", 0.0),
+        diagnostics.get("no_sql_extracted_rate", 0.0),
+        diagnostics.get("unclosed_block_rate", 0.0),
+        diagnostics.get("near_token_limit_rate", 0.0),
     )
     return 0
 
