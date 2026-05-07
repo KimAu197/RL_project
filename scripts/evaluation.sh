@@ -10,7 +10,7 @@ set -eo pipefail
 #   DATASET: dataset tag used in the results directory
 #   COUNT: number of dev examples (0 = full dev split)
 #   DETAILED: true|false, whether answer.json keeps pred_text
-#   VARIANT: direct | sketch (chooses the prompt mode via configs/eval_default.yaml)
+#   VARIANT: direct | sketch
 ################################################################################
 
 # Model to evaluate (path to SFT/GRPO final checkpoint or HF repo id).
@@ -48,6 +48,7 @@ python -m "${PKG}.evaluation.eval_pipeline" \
     --round "$ROUND_NAME" \
     --dataset "$DATASET" \
     --count "$COUNT" \
+    --variant "$VARIANT" \
     --detailed "$DETAILED"
 
 echo "[evaluation] finished variant=$VARIANT model=$MODEL dataset=$DATASET count=$COUNT detailed=$DETAILED"

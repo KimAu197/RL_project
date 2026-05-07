@@ -186,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--round", type=str, default=None)
     parser.add_argument("--dataset", type=str, default=None)
     parser.add_argument("--count", type=int, default=None)
+    parser.add_argument("--variant", choices=("direct", "sketch"), default=None, help="override prompt.mode")
     parser.add_argument("--detailed", type=str, default=None, help="true|false")
     args = parser.parse_args(argv)
 
@@ -198,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
         overrides["data"] = {"dataset_tag": args.dataset}
     if args.count is not None:
         overrides.setdefault("data", {})["max_eval_examples"] = args.count
+    if args.variant is not None:
+        overrides["prompt"] = {"mode": args.variant}
     if args.detailed is not None:
         overrides["eval"] = {"detailed": args.detailed.lower() == "true"}
 
