@@ -20,6 +20,15 @@ COUNT=0
 # Number of sampled completions per prompt.
 SAMPLES=8
 
+# Prompts per generation batch. Actual generated sequences per step are
+# BATCH_SIZE * SAMPLES, so keep this small for 7B models.
+BATCH_SIZE=1
+
+# Sampling settings for estimating pass rate. These should be stochastic,
+# typically matching GRPO generation settings.
+TEMPERATURE=0.7
+TOP_P=0.95
+
 # Keep examples whose sampled execution pass rate falls in this range.
 MIN_PASS_RATE=0.125
 MAX_PASS_RATE=0.875
@@ -52,10 +61,13 @@ python -m "${PKG}.data.difficulty_filter" \
     --variant "$VARIANT" \
     --count "$COUNT" \
     --samples "$SAMPLES" \
+    --batch-size "$BATCH_SIZE" \
+    --temperature "$TEMPERATURE" \
+    --top-p "$TOP_P" \
     --min-pass-rate "$MIN_PASS_RATE" \
     --max-pass-rate "$MAX_PASS_RATE" \
     --min-has-sql-rate "$MIN_HAS_SQL_RATE" \
     --min-valid-sql-rate "$MIN_VALID_SQL_RATE" \
     --output-dir "$OUTPUT_DIR"
 
-echo "[filter_difficulty] finished variant=$VARIANT model=$MODEL dataset=$DATASET count=$COUNT samples=$SAMPLES output=$OUTPUT_DIR"
+echo "[filter_difficulty] finished variant=$VARIANT model=$MODEL dataset=$DATASET count=$COUNT samples=$SAMPLES batch_size=$BATCH_SIZE temperature=$TEMPERATURE output=$OUTPUT_DIR"

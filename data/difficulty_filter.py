@@ -203,9 +203,12 @@ def run_filter(config_path: str, cli_overrides: dict[str, Any]) -> int:
         prompts.append(apply_chat_template(tokenizer, spec, target=None, add_generation_prompt=True))
 
     gen_cfg_dict = cfg.get("generation", {})
+    temperature = float(gen_cfg_dict.get("temperature", 0.7))
+    if temperature <= 0.0:
+        raise ValueError("difficulty filtering samples with do_sample=True, so generation.temperature must be > 0")
     gen_cfg = GenerationConfigLite(
         max_new_tokens=int(gen_cfg_dict.get("max_new_tokens", 512)),
-        temperature=float(gen_cfg_dict.get("temperature", 0.7)),
+        temperature=temperature,
         top_p=float(gen_cfg_dict.get("top_p", 0.95)),
         do_sample=True,
         num_return_sequences=samples,
@@ -265,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--variant", choices=("direct", "sketch"), default=None)
     parser.add_argument("--count", type=int, default=None, help="number of train examples; 0 = full train split")
     parser.add_argument("--samples", type=int, default=None, help="samples per prompt")
+    parser.add_argument("--batch-size", type=int, default=None, help="prompts per generation batch")
+    parser.add_argument("--temperature", type=float, default=None, help="sampling temperature; must be > 0")
+    parser.add_argument("--top-p", type=float, default=None)
     parser.add_argument("--min-pass-rate", type=float, default=None)
     parser.add_argument("--max-pass-rate", type=float, default=None)
     parser.add_argument("--min-has-sql-rate", type=float, default=None)
@@ -279,6 +285,14 @@ def main(argv: list[str] | None = None) -> int:
         overrides.setdefault("prompt", {})["mode"] = args.variant
     if args.count is not None:
         overrides.setdefault("data", {})["max_train_examples"] = None if args.count == 0 else args.count
+    for attr, key in (
+        ("batch_size", "batch_size"),
+        ("temperature", "temperature"),
+        ("top_p", "top_p"),
+    ):
+        value = getattr(args, attr)
+        if value is not None:
+            overrides.setdefault("generation", {})[key] = value
     for attr, key in (
         ("samples", "samples"),
         ("min_pass_rate", "min_pass_rate"),
