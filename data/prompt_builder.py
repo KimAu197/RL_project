@@ -32,9 +32,7 @@ SYSTEM_SKETCH = (
     "first produce a structured sketch of the query inside <sketch>...</sketch>, "
     "then produce the final SQL inside <sql>...</sql>. The sketch must list the "
     "tables, joins, select expressions, aggregations, filters, grouping, ordering, "
-    "limit, subqueries, and set operations needed to answer the question. Use "
-    "SET_OP and SET_RHS for UNION, INTERSECT, or EXCEPT. Use '?' for concrete "
-    "literal values."
+    "and limit needed to answer the question. Use '?' for concrete literal values."
 )
 
 USER_TEMPLATE = (

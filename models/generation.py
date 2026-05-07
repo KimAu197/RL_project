@@ -39,29 +39,6 @@ def _pad_left(tokenizer, input_ids: list[list[int]]) -> dict:
     }
 
 
-def _gen_kwargs(cfg: GenerationConfigLite, pad_id) -> dict:
-    return {
-        "max_new_tokens": cfg.max_new_tokens,
-        "do_sample": cfg.do_sample,
-        "temperature": cfg.temperature if cfg.do_sample else 1.0,
-        "top_p": cfg.top_p,
-        "num_return_sequences": cfg.num_return_sequences,
-        "repetition_penalty": cfg.repetition_penalty,
-        "pad_token_id": pad_id,
-    }
-
-
-def _new_token_counts(seqs, pad_id) -> list[int]:
-    out = []
-    for k in range(seqs.size(0)):
-        seq = seqs[k]
-        if pad_id is not None:
-            out.append(int((seq != pad_id).sum().item()))
-        else:
-            out.append(int(seq.numel()))
-    return out
-
-
 @torch.no_grad()
 def generate_batched(
     model,
@@ -69,23 +46,16 @@ def generate_batched(
     prompts: list[str],
     cfg: GenerationConfigLite,
     batch_size: int = 8,
-    return_token_counts: bool = False,
-):
+) -> list[list[str]]:
     """Generate completions for each prompt.
 
     Returns a list (len == len(prompts)) of lists
     (len == cfg.num_return_sequences) containing only the newly generated
     text (the prompt is stripped off via slicing on the token ids).
-
-    When ``return_token_counts`` is True, also returns a parallel list of
-    per-completion new-token counts (excluding right-padding) so callers
-    can detect generations that exhausted ``cfg.max_new_tokens``.
     """
     model.eval()
     device = next(model.parameters()).device
     out_all: list[list[str]] = []
-    counts_all: list[list[int]] = []
-    pad_id = tokenizer.pad_token_id
 
     for start in range(0, len(prompts), batch_size):
         batch = prompts[start : start + batch_size]
@@ -95,23 +65,33 @@ def generate_batched(
         attention_mask = padded["attention_mask"].to(device)
         prompt_len = input_ids.size(1)
 
+        gen_kwargs = {
+            "max_new_tokens": cfg.max_new_tokens,
+            "do_sample": cfg.do_sample,
+            "temperature": cfg.temperature if cfg.do_sample else 1.0,
+            "top_p": cfg.top_p,
+            "num_return_sequences": cfg.num_return_sequences,
+            "repetition_penalty": cfg.repetition_penalty,
+            "pad_token_id": tokenizer.pad_token_id,
+        }
+
         out = model.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            **_gen_kwargs(cfg, pad_id),
+            **gen_kwargs,
         )
 
-        new_tokens = out[:, prompt_len:].reshape(
+        # out shape: (batch * num_return, total_len). Strip prompt tokens.
+        new_tokens = out[:, prompt_len:]
+        # reshape (never view) to survive non-contiguous layouts.
+        new_tokens = new_tokens.reshape(
             input_ids.size(0), cfg.num_return_sequences, -1
         )
         for i in range(input_ids.size(0)):
-            seqs_i = new_tokens[i]
-            out_all.append(
-                [tokenizer.decode(seqs_i[k], skip_special_tokens=True) for k in range(cfg.num_return_sequences)]
-            )
-            if return_token_counts:
-                counts_all.append(_new_token_counts(seqs_i, pad_id))
+            group = [
+                tokenizer.decode(new_tokens[i, k], skip_special_tokens=True)
+                for k in range(cfg.num_return_sequences)
+            ]
+            out_all.append(group)
 
-    if return_token_counts:
-        return out_all, counts_all
     return out_all

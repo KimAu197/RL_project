@@ -12,14 +12,9 @@ model:
 grpo:
   num_generations: 8
   max_prompt_length: 1536
-  # Match eval_sketch.yaml's generation.max_new_tokens so RL is not
-  # optimizing under harsher truncation than evaluation.
-  max_completion_length: 1024
+  max_completion_length: 640
 
 reward:
-  # Keep the presence-only bonus disabled by default. Use the bounded
-  # correctness terms below so sketch reward tracks useful structure.
-  sketch_bonus: 0.0
-  sketch_format_bonus: 0.02
-  sketch_table_bonus: 0.05
-  sketch_agg_bonus: 0.03
+  # Small, bounded bonus for producing a well-formed <sketch> block. Set to
+  # 0.0 to disable for the reward-hacking ablation.
+  sketch_bonus: 0.1

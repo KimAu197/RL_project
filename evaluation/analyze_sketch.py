@@ -17,8 +17,26 @@ import json
 import sys
 from pathlib import Path
 
+from ..data.sketch_extractor import SketchExtractionError, extract_sketch
 from ..sql.validator import extract_sketch_text
-from .sketch_metrics import compute_sketch_metrics
+
+
+def _tables_from_pred_sketch(sketch_text: str) -> set[str]:
+    for line in sketch_text.splitlines():
+        if line.upper().startswith("TABLES:"):
+            raw = line.split(":", 1)[1].strip()
+            if raw == "-" or not raw:
+                return set()
+            return {t.strip() for t in raw.split(",") if t.strip()}
+    return set()
+
+
+def _aggs_from_pred_sketch(sketch_text: str) -> set[str]:
+    for line in sketch_text.splitlines():
+        if line.upper().startswith("AGGREGATIONS:"):
+            raw = line.split(":", 1)[1].strip()
+            return {t.strip().upper() for t in raw.split(",") if t.strip()}
+    return set()
 
 
 def analyze(answer_path: str | Path) -> dict:
@@ -28,7 +46,7 @@ def analyze(answer_path: str | Path) -> dict:
         return {"n": 0}
 
     n_sketch = 0
-    table_recall_sum = 0.0
+    table_hits = 0
     table_total = 0
     agg_match = 0
     agg_total = 0
@@ -38,17 +56,30 @@ def analyze(answer_path: str | Path) -> dict:
         if sketch_text:
             n_sketch += 1
 
-        metrics = compute_sketch_metrics(sketch_text, r.get("gold_sql", ""))
-        table_recall_sum += metrics.table_recall
-        table_total += 1
-        if metrics.agg_match:
-            agg_match += 1
-        agg_total += 1
+        gold_sql = r.get("gold_sql", "")
+        try:
+            gold_sketch = extract_sketch(gold_sql)
+        except SketchExtractionError:
+            continue
+
+        gold_tables = set(gold_sketch.tables)
+        if gold_tables:
+            pred_tables = _tables_from_pred_sketch(sketch_text or "")
+            hits = len(gold_tables & pred_tables)
+            table_hits += hits
+            table_total += len(gold_tables)
+
+        gold_aggs = set(gold_sketch.aggregations)
+        if gold_aggs or sketch_text:
+            pred_aggs = _aggs_from_pred_sketch(sketch_text or "")
+            if gold_aggs == pred_aggs:
+                agg_match += 1
+            agg_total += 1
 
     return {
         "n": n,
         "sketch_present_rate": n_sketch / n,
-        "table_recall": (table_recall_sum / table_total) if table_total else 0.0,
+        "table_recall": (table_hits / table_total) if table_total else 0.0,
         "agg_match_rate": (agg_match / agg_total) if agg_total else 0.0,
     }
 

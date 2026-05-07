@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
-from ..evaluation.sketch_metrics import compute_sketch_metrics
 from ..sql.executor import execute_sql, spider_db_path
 from ..sql.metrics import results_equal
 from ..sql.validator import extract_sql, extract_sketch_text, is_valid_sql
@@ -39,9 +38,6 @@ class RewardConfig:
     match_reward: float = 1.0
     validity_bonus: float = 0.0
     sketch_bonus: float = 0.0
-    sketch_format_bonus: float = 0.0
-    sketch_table_bonus: float = 0.0
-    sketch_agg_bonus: float = 0.0
     no_sql_penalty: float = 0.0
     dialect: str = "sqlite"
 
@@ -73,7 +69,7 @@ class ExecutionReward:
             reward += cfg.validity_bonus
 
         if cfg.mode == "sketch" and extract_sketch_text(completion_text):
-            reward += self.sketch_reward(completion_text, gold_sql)
+            reward += cfg.sketch_bonus
 
         db_path = spider_db_path(cfg.spider_root, db_id)
         gold_res = self._gold_result(db_path, gold_sql)
@@ -82,22 +78,6 @@ class ExecutionReward:
         if results_equal(pred_res, gold_res, gold_sql):
             reward += cfg.match_reward
 
-        return float(reward)
-
-    def sketch_reward(self, completion_text: str, gold_sql: str) -> float:
-        """Return bounded auxiliary reward for sketch presence and correctness."""
-        cfg = self.cfg
-        sketch_text = extract_sketch_text(completion_text)
-        if cfg.mode != "sketch" or not sketch_text:
-            return 0.0
-
-        metrics = compute_sketch_metrics(sketch_text, gold_sql, dialect=cfg.dialect)
-        reward = cfg.sketch_bonus
-        if metrics.format_ok:
-            reward += cfg.sketch_format_bonus
-        reward += cfg.sketch_table_bonus * metrics.table_recall
-        if metrics.agg_match:
-            reward += cfg.sketch_agg_bonus
         return float(reward)
 
 
