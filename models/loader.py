@@ -106,10 +106,10 @@ def _load_peft_adapter(adapter_path: str, model_kwargs: dict[str, Any], cfg: Loa
     base_model_name = _get_base_model_from_adapter(adapter_path)
     model = AutoModelForCausalLM.from_pretrained(base_model_name, **model_kwargs)
 
-    # Resize embeddings to match the tokenizer saved with the adapter.
-    # This is needed because SFT may have resized embeddings before saving.
+    # Only resize UP. Never shrink — some models (e.g. Qwen) intentionally
+    # have more embedding slots than vocab tokens, and vLLM expects that size.
     embed_size = model.get_input_embeddings().weight.shape[0]
-    if len(tokenizer) != embed_size:
+    if len(tokenizer) > embed_size:
         model.resize_token_embeddings(len(tokenizer))
 
     if getattr(model, "is_loaded_in_4bit", False) or getattr(model, "is_loaded_in_8bit", False):
