@@ -41,8 +41,19 @@ class RewardConfig:
     sketch_bonus: float = 0.0
     sketch_format_bonus: float = 0.0
     sketch_table_bonus: float = 0.0
+    sketch_select_bonus: float = 0.0
+    sketch_join_bonus: float = 0.0
+    sketch_where_bonus: float = 0.0
+    sketch_group_by_bonus: float = 0.0
+    sketch_having_bonus: float = 0.0
+    sketch_subquery_bonus: float = 0.0
+    sketch_order_by_bonus: float = 0.0
+    sketch_limit_bonus: float = 0.0
+    sketch_set_op_bonus: float = 0.0
+    sketch_set_rhs_bonus: float = 0.0
     sketch_agg_bonus: float = 0.0
     no_sql_penalty: float = 0.0
+    execution_error_penalty: float = 0.0
     dialect: str = "sqlite"
 
 
@@ -78,6 +89,8 @@ class ExecutionReward:
         db_path = spider_db_path(cfg.spider_root, db_id)
         gold_res = self._gold_result(db_path, gold_sql)
         pred_res = execute_sql(pred_sql, db_path, timeout_s=cfg.timeout_s)
+        if not pred_res.ok:
+            reward += cfg.execution_error_penalty
 
         if results_equal(pred_res, gold_res, gold_sql):
             reward += cfg.match_reward
@@ -95,9 +108,23 @@ class ExecutionReward:
         reward = cfg.sketch_bonus
         if metrics.format_ok:
             reward += cfg.sketch_format_bonus
-        reward += cfg.sketch_table_bonus * metrics.table_recall
-        if metrics.agg_match:
-            reward += cfg.sketch_agg_bonus
+        reward += cfg.sketch_table_bonus * metrics.table_f1
+        if metrics.select_match:
+            reward += cfg.sketch_select_bonus
+        for relevant, matched, bonus in (
+            (metrics.agg_relevant, metrics.agg_match, cfg.sketch_agg_bonus),
+            (metrics.join_relevant, metrics.join_match, cfg.sketch_join_bonus),
+            (metrics.where_relevant, metrics.where_match, cfg.sketch_where_bonus),
+            (metrics.group_by_relevant, metrics.group_by_match, cfg.sketch_group_by_bonus),
+            (metrics.having_relevant, metrics.having_match, cfg.sketch_having_bonus),
+            (metrics.subquery_relevant, metrics.subquery_match, cfg.sketch_subquery_bonus),
+            (metrics.order_by_relevant, metrics.order_by_match, cfg.sketch_order_by_bonus),
+            (metrics.limit_relevant, metrics.limit_match, cfg.sketch_limit_bonus),
+            (metrics.set_op_relevant, metrics.set_op_match, cfg.sketch_set_op_bonus),
+            (metrics.set_rhs_relevant, metrics.set_rhs_match, cfg.sketch_set_rhs_bonus),
+        ):
+            if relevant and matched:
+                reward += bonus
         return float(reward)
 
 

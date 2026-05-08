@@ -119,8 +119,19 @@ def run_grpo(config_path: str, extra: dict) -> int:
         sketch_bonus=float(cfg.get("reward", {}).get("sketch_bonus", 0.0)),
         sketch_format_bonus=float(cfg.get("reward", {}).get("sketch_format_bonus", 0.0)),
         sketch_table_bonus=float(cfg.get("reward", {}).get("sketch_table_bonus", 0.0)),
+        sketch_select_bonus=float(cfg.get("reward", {}).get("sketch_select_bonus", 0.0)),
+        sketch_join_bonus=float(cfg.get("reward", {}).get("sketch_join_bonus", 0.0)),
+        sketch_where_bonus=float(cfg.get("reward", {}).get("sketch_where_bonus", 0.0)),
+        sketch_group_by_bonus=float(cfg.get("reward", {}).get("sketch_group_by_bonus", 0.0)),
+        sketch_having_bonus=float(cfg.get("reward", {}).get("sketch_having_bonus", 0.0)),
+        sketch_subquery_bonus=float(cfg.get("reward", {}).get("sketch_subquery_bonus", 0.0)),
+        sketch_order_by_bonus=float(cfg.get("reward", {}).get("sketch_order_by_bonus", 0.0)),
+        sketch_limit_bonus=float(cfg.get("reward", {}).get("sketch_limit_bonus", 0.0)),
+        sketch_set_op_bonus=float(cfg.get("reward", {}).get("sketch_set_op_bonus", 0.0)),
+        sketch_set_rhs_bonus=float(cfg.get("reward", {}).get("sketch_set_rhs_bonus", 0.0)),
         sketch_agg_bonus=float(cfg.get("reward", {}).get("sketch_agg_bonus", 0.0)),
         no_sql_penalty=float(cfg.get("reward", {}).get("no_sql_penalty", 0.0)),
+        execution_error_penalty=float(cfg.get("reward", {}).get("execution_error_penalty", 0.0)),
     )
     reward_fn = build_reward_fn(reward_cfg)
 
