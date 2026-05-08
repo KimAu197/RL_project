@@ -2,7 +2,7 @@
 # and override only what they need to change.
 
 run:
-  output_root: runs
+  output_root: RL_project/runs
   round_name: default
   # model_tag is used in the output directory name; leave null to derive from
   # the model path.
@@ -16,8 +16,9 @@ model:
   dtype: bfloat16
   device_map: auto
   trust_remote_code: true
-  load_in_4bit: true
+  load_in_4bit: false
   load_in_8bit: false
+  attn_impl: sdpa
   lora:
     r: 16
     alpha: 32
@@ -34,8 +35,8 @@ model:
   # Optional: attn_impl: sdpa | flash_attention_2
 
 data:
-  spider_root: datasets/spider
-  processed_dir: datasets/spider/processed
+  spider_root: RL_project/spider
+  processed_dir: RL_project/spider/processed
   dataset_tag: spider
   max_schema_chars: 4000
   max_train_examples: null
@@ -50,7 +51,7 @@ generation:
   temperature: 0.0
   top_p: 1.0
   do_sample: false
-  batch_size: 4
+  batch_size: 16
   repetition_penalty: 1.0
 
 eval:
@@ -60,9 +61,9 @@ eval:
 reward:
   timeout_s: 5.0
   match_reward: 1.0
-  validity_bonus: 0.0
+  validity_bonus: 0.3
   sketch_bonus: 0.0
-  no_sql_penalty: 0.0
+  no_sql_penalty: -0.5
 
 sft:
   num_train_epochs: 3
@@ -86,20 +87,20 @@ sft:
 
 grpo:
   num_train_epochs: 1
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 64
+  gradient_accumulation_steps: 1
   learning_rate: 1.0e-6
-  warmup_ratio: 0.0
+  warmup_ratio: 0.03
   lr_scheduler_type: constant
   logging_steps: 10
-  save_steps: 500
-  save_total_limit: 2
+  save_steps: 100
+  save_total_limit: 10
   bf16: true
   fp16: false
   max_completion_length: 256
-  num_generations: 4
+  num_generations: 8
   beta: 0.04
-  temperature: 0.7
+  temperature: 1.0
   top_p: 0.95
   # Critical: keep db_id / gold_sql columns so they reach the reward function.
   remove_unused_columns: false
