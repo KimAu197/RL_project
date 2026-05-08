@@ -14,7 +14,7 @@ grpo:
   max_prompt_length: 1536
   # Match eval_sketch.yaml's generation.max_new_tokens so RL is not
   # optimizing under harsher truncation than evaluation.
-  max_completion_length: 1024
+  max_completion_length: 256
 
 reward:
   # Keep the presence-only bonus disabled by default. Use the bounded
