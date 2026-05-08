@@ -72,6 +72,8 @@ def _expr_to_placeholder(e: exp.Expression) -> str:
         return "*"
     if isinstance(e, exp.Alias):
         return _expr_to_placeholder(e.this)
+    if isinstance(e, exp.Binary):
+        return _render_binary(e)
     if isinstance(e, exp.Func):
         return _render_func(e)
     if isinstance(e, exp.Paren):
@@ -79,8 +81,6 @@ def _expr_to_placeholder(e: exp.Expression) -> str:
     if isinstance(e, exp.Distinct):
         inner = e.args.get("expressions") or []
         return "DISTINCT " + ", ".join(_expr_to_placeholder(x) for x in inner)
-    if isinstance(e, exp.Binary):
-        return _render_binary(e)
     if isinstance(e, exp.Not):
         return f"NOT {_expr_to_placeholder(e.this)}"
     if isinstance(e, exp.Between):
@@ -91,7 +91,7 @@ def _expr_to_placeholder(e: exp.Expression) -> str:
     if isinstance(e, exp.Exists):
         return _render_exists(e)
     if isinstance(e, exp.Subquery):
-        return _summarize_query(e)
+        return f"({_summarize_query(e)})"
     # Fallback: render via sqlglot but strip literals
     try:
         rendered = e.sql()
