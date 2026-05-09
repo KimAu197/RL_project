@@ -11,10 +11,15 @@ model:
 
 grpo:
   num_generations: 8
-  max_prompt_length: 1536
   # Match eval_sketch.yaml's generation.max_new_tokens so RL is not
   # optimizing under harsher truncation than evaluation.
   max_completion_length: 256
+  beta: 0.04
+  temperature: 1.0
+  warmup_ratio: 0.03
+  use_vllm: true
+  vllm_gpu_memory_utilization: 0.25
+  
 
 reward:
   # Keep the presence-only bonus disabled by default. Use the bounded

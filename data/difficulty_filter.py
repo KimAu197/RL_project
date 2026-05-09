@@ -27,6 +27,20 @@ from .spider_dataset import SpiderRecord, load_spider_splits
 
 LOGGER = logging.getLogger("difficulty_filter")
 
+_STATS_FIELDNAMES = [
+    "idx",
+    "keep",
+    "db_id",
+    "question",
+    "num_samples",
+    "pass_rate",
+    "mean_reward",
+    "reward_std",
+    "has_sql_rate",
+    "valid_sql_rate",
+    "has_sketch_rate",
+]
+
 __all__ = [
     "DifficultyFilterConfig",
     "DifficultyStats",
@@ -124,24 +138,11 @@ def _write_filtered_jsonl(records: list[SpiderRecord], path: Path) -> None:
 
 def _write_stats_csv(rows: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = [
-        "idx",
-        "keep",
-        "db_id",
-        "question",
-        "num_samples",
-        "pass_rate",
-        "mean_reward",
-        "reward_std",
-        "has_sql_rate",
-        "valid_sql_rate",
-        "has_sketch_rate",
-    ]
     with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=_STATS_FIELDNAMES)
         writer.writeheader()
         for row in rows:
-            writer.writerow({k: row.get(k) for k in fieldnames})
+            writer.writerow({k: row.get(k) for k in _STATS_FIELDNAMES})
 
 
 def _write_summary(path: Path, total: int, kept: int, filter_cfg: DifficultyFilterConfig) -> None:
@@ -273,39 +274,46 @@ def run_filter(config_path: str, cli_overrides: dict[str, Any]) -> int:
     reward_cfg = _build_reward_config(cfg, mode)
     reward_fn = build_reward_fn(reward_cfg)
 
-    kept_records: list[SpiderRecord] = []
-    stats_rows: list[dict[str, Any]] = []
-    LOGGER.info("sampling %d completions per prompt; samples_per_call=%d", samples, samples_per_call)
-    for idx in tqdm(range(0, len(records), batch_size), desc="filter train"):
-        batch_records = records[idx : idx + batch_size]
-        batch_prompts = prompts[idx : idx + batch_size]
-        completions_nested = _generate_completions_in_chunks(
-            model, tokenizer, batch_prompts, gen_cfg, batch_size, samples, samples_per_call
-        )
-        for offset, (rec, completions) in enumerate(zip(batch_records, completions_nested)):
-            rewards = _score_completions(reward_fn, completions, rec.db_id, rec.sql)
-            pred_sqls = [extract_sql(text) for text in completions]
-            valid_flags = [bool(sql) and is_valid_sql(sql) for sql in pred_sqls]
-            sketch_flags = [extract_sketch_text(text) is not None for text in completions]
-            stats = compute_difficulty_stats(rewards, pred_sqls, valid_flags, sketch_flags)
-            keep = keep_by_difficulty(stats, filter_cfg)
-            if keep:
-                kept_records.append(rec)
-            stats_rows.append(
-                {
-                    "idx": idx + offset,
-                    "keep": keep,
-                    "db_id": rec.db_id,
-                    "question": rec.question,
-                    **asdict(stats),
-                }
-            )
-
     filtered_path = output_dir / f"spider_{mode}_train.jsonl"
-    _write_filtered_jsonl(kept_records, filtered_path)
-    _write_stats_csv(stats_rows, output_dir / "difficulty_stats.csv")
-    _write_summary(output_dir / "summary.txt", total=len(records), kept=len(kept_records), filter_cfg=filter_cfg)
-    LOGGER.info("kept %d/%d examples; wrote %s", len(kept_records), len(records), filtered_path)
+    stats_path = output_dir / "difficulty_stats.csv"
+    kept_count = 0
+    LOGGER.info("sampling %d completions per prompt; samples_per_call=%d", samples, samples_per_call)
+    with (
+        open(filtered_path, "w", encoding="utf-8") as filtered_f,
+        open(stats_path, "w", encoding="utf-8", newline="") as stats_f,
+    ):
+        stats_writer = csv.DictWriter(stats_f, fieldnames=_STATS_FIELDNAMES)
+        stats_writer.writeheader()
+        for idx in tqdm(range(0, len(records), batch_size), desc="filter train"):
+            batch_records = records[idx : idx + batch_size]
+            batch_prompts = prompts[idx : idx + batch_size]
+            completions_nested = _generate_completions_in_chunks(
+                model, tokenizer, batch_prompts, gen_cfg, batch_size, samples, samples_per_call
+            )
+            for offset, (rec, completions) in enumerate(zip(batch_records, completions_nested)):
+                rewards = _score_completions(reward_fn, completions, rec.db_id, rec.sql)
+                pred_sqls = [extract_sql(text) for text in completions]
+                valid_flags = [bool(sql) and is_valid_sql(sql) for sql in pred_sqls]
+                sketch_flags = [extract_sketch_text(text) is not None for text in completions]
+                stats = compute_difficulty_stats(rewards, pred_sqls, valid_flags, sketch_flags)
+                keep = keep_by_difficulty(stats, filter_cfg)
+                if keep:
+                    filtered_f.write(json.dumps(rec.to_dict(), ensure_ascii=False) + "\n")
+                    filtered_f.flush()
+                    kept_count += 1
+                stats_writer.writerow(
+                    {
+                        "idx": idx + offset,
+                        "keep": keep,
+                        "db_id": rec.db_id,
+                        "question": rec.question,
+                        **asdict(stats),
+                    }
+                )
+                stats_f.flush()
+
+    _write_summary(output_dir / "summary.txt", total=len(records), kept=kept_count, filter_cfg=filter_cfg)
+    LOGGER.info("kept %d/%d examples; wrote %s", kept_count, len(records), filtered_path)
     return 0
 
 
