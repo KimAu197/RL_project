@@ -19,19 +19,19 @@ grpo:
 reward:
   # Keep the presence-only bonus disabled by default. Use the bounded
   # correctness terms below so sketch reward tracks useful structure.
-  sketch_bonus: 0.0
+  sketch_bonus: 0.1
   # Syntax-valid SQL is too common to distinguish outputs; execution errors
   # are more informative and should be discouraged.
-  validity_bonus: 0.0
-  execution_error_penalty: -0.05
-  # Keep formatting tiny; almost every trained sample already gets it right.
-  sketch_format_bonus: 0.005
-  # Table score uses F1, so extra hallucinated tables no longer get full credit.
-  sketch_table_bonus: 0.02
-  sketch_select_bonus: 0.02
-  sketch_where_bonus: 0.02
-  sketch_group_by_bonus: 0.01
-  sketch_order_by_bonus: 0.01
-  sketch_limit_bonus: 0.01
-  sketch_subquery_bonus: 0.02
-  sketch_agg_bonus: 0.015
+  # validity_bonus: 0.0
+  # execution_error_penalty: -0.05
+  # # Keep formatting tiny; almost every trained sample already gets it right.
+  # sketch_format_bonus: 0.005
+  # # Table score uses F1, so extra hallucinated tables no longer get full credit.
+  # sketch_table_bonus: 0.02
+  # sketch_select_bonus: 0.02
+  # sketch_where_bonus: 0.02
+  # sketch_group_by_bonus: 0.01
+  # sketch_order_by_bonus: 0.01
+  # sketch_limit_bonus: 0.01
+  # sketch_subquery_bonus: 0.02
+  # sketch_agg_bonus: 0.015

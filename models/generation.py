@@ -39,7 +39,7 @@ def _pad_left(tokenizer, input_ids: list[list[int]]) -> dict:
     }
 
 
-def _gen_kwargs(cfg: GenerationConfigLite, pad_id) -> dict:
+def _gen_kwargs(cfg: GenerationConfigLite, pad_id, eos_id) -> dict:
     return {
         "max_new_tokens": cfg.max_new_tokens,
         "do_sample": cfg.do_sample,
@@ -48,6 +48,9 @@ def _gen_kwargs(cfg: GenerationConfigLite, pad_id) -> dict:
         "num_return_sequences": cfg.num_return_sequences,
         "repetition_penalty": cfg.repetition_penalty,
         "pad_token_id": pad_id,
+        "eos_token_id": eos_id,
+        "renormalize_logits": True,
+        "remove_invalid_values": True,
     }
 
 
@@ -98,7 +101,7 @@ def generate_batched(
         out = model.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            **_gen_kwargs(cfg, pad_id),
+            **_gen_kwargs(cfg, pad_id, tokenizer.eos_token_id),
         )
 
         new_tokens = out[:, prompt_len:].reshape(
